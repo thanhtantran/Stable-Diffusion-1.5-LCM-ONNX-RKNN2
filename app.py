@@ -14,15 +14,16 @@ def sanitize_filename(prompt):
     return filename
 
 def initialize_model():
-    """Initialize model with visual feedback"""
-    with st.spinner("🔍 Checking for model files..."):
-        try:
-            model_path = download_model()
-            st.success("✅ Model ready!")
-            return True
-        except Exception as e:
-            st.error(f"❌ Model initialization failed: {str(e)}")
-            return False
+    """Khởi tạo model với feedback tối giản"""
+    try:
+        # Hiển thị thông báo cực ngắn nếu cần tải
+        if not os.path.exists("./model") or not os.listdir("./model"):
+            with st.spinner("Downloading model files..."):
+                download_model()
+        return True
+    except Exception as e:
+        st.error(f"Model initialization failed: {str(e)}")
+        return False
 
 def run_image_generation(num_steps, size, prompt):
     """Run image generation command"""
@@ -63,11 +64,12 @@ def main():
     if 'error_message' not in st.session_state:
         st.session_state.error_message = None
     
-    # Model initialization (hidden from user)
-    if not st.session_state.model_ready:
-        st.session_state.model_ready = initialize_model()
-        if not st.session_state.model_ready:
+    # Khởi tạo model (ẩn với người dùng)
+    if 'model_ready' not in st.session_state:
+        if not initialize_model():
             st.stop()
+        st.session_state.model_ready = True
+        st.rerun()
     
     # Main UI (identical to original)
     st.title("🎨 Local Orange Pi AI Image Generator")
