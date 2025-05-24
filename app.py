@@ -6,6 +6,13 @@ import time
 from pathlib import Path
 import re
 from datetime import datetime
+import base64
+
+def get_base64_of_bin_file(bin_file):
+  """Convert image to base64 string"""
+  with open(bin_file, 'rb') as f:
+      data = f.read()
+  return base64.b64encode(data).decode()
 
 def sanitize_filename(prompt):
   """Convert prompt to filename format (matching the actual script behavior)"""
@@ -124,10 +131,29 @@ def main():
       layout="wide"
   )
   
-  st.title("🎨 Local Orange Pi AI Image Generator")
-  st.markdown("""
-  Generate beautiful images using your RKNN-LCM model, using Orange Pi 5 with RK3588 SoC - Buy Orange Pi 5 RK3588 at <a href='https://orangepi.net' target='_blank'>https://orangepi.net</a>
-  """, unsafe_allow_html=True)
+  # Header with logo
+  header_col1, header_col2 = st.columns([3, 1])
+  
+  with header_col1:
+      st.title("🎨 Local Orange Pi AI Image Generator")
+      st.markdown("""
+      Generate beautiful images using your RKNN-LCM model, using Orange Pi 5 with RK3588 SoC - Buy Orange Pi 5 RK3588 at <a href='https://orangepi.net' target='_blank'>https://orangepi.net</a>
+      """, unsafe_allow_html=True)
+  
+  with header_col2:
+      # Display logo if it exists
+      logo_path = "logo1.png"
+      if os.path.exists(logo_path):
+          st.image(logo_path, width=200)
+      else:
+          # Fallback if logo file not found
+          st.markdown("""
+          <div style='text-align: center; padding: 20px;'>
+              <a href='https://orangepi.vn' target='_blank'>
+                  <img src='https://d41chssnpqdne.cloudfront.net/user_upload_by_module/chat_bot/files/11649934/yk5DLMH5wgC8lGkp.png' width='200' alt='Orange Pi Vietnam'>
+              </a>
+          </div>
+          """, unsafe_allow_html=True)
   
   # Initialize session state
   if 'generating' not in st.session_state:
@@ -316,6 +342,15 @@ def main():
           else:
               st.error("❌ Generated image file not found")
   
+  # Footer
+  st.markdown("---")
+  st.markdown("""
+  <div style='text-align: center; padding: 20px; color: #666; font-size: 14px;'>
+      <p>Copyright © 2025 - <a href='https://orangepi.vn' target='_blank' style='color: #FF6B6B; text-decoration: none;'>Orange Pi Việt Nam</a></p>
+      <p>Powered by Orange Pi 5 RK3588 SoC | AI Image Generation with RKNN-LCM</p>
+  </div>
+  """, unsafe_allow_html=True)
+  
   # Add some styling
   st.markdown("""
   <style>
@@ -336,6 +371,32 @@ def main():
       color: #666666;
   }
   .stExpander > div > div > div > div {
+      padding: 10px;
+  }
+  
+  /* Header styling */
+  .main > div:first-child {
+      padding-top: 1rem;
+  }
+  
+  /* Footer styling */
+  .footer {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      background-color: #f0f2f6;
+      color: #666;
+      text-align: center;
+      padding: 10px;
+      border-top: 1px solid #e0e0e0;
+  }
+  
+  /* Logo styling */
+  .logo-container {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
       padding: 10px;
   }
   </style>
