@@ -2,7 +2,7 @@
 
 # Stable-Diffusion-1.5-LCM-ONNX-RKNN2
 
-This project provides a simple web interface to run **Stable Diffusion 1.5 with LCM** using **ONNX** and **RKNN2**, optimized for edge devices with **Streamlit** frontend.
+This project provides a simple web interface to run **Stable Diffusion 1.5 with LCM** using **ONNX** and **RKNN2**, optimized for [Orange Pi](https://orangepi.net) RK3588 devices with **Streamlit** frontend.
 
 With this app, you can:
 - Enter a text prompt via a web interface
@@ -15,7 +15,7 @@ With this app, you can:
 
 - Web UI built with Streamlit for ease of use
 - Supports Rockchip RKNN2 inference engine
-- Lightweight and easy to deploy on ARM-based systems (e.g., Orange Pi, Rockchip devices)
+- Lightweight and easy to deploy on [Orange Pi](https://orangepi.net) RK3588 devices (e.g., Orange Pi 5, Orange Pi 5B, Orange Pi 5 MAX, ...)
 
 ---
 

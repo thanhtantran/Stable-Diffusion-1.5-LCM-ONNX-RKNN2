@@ -1,6 +1,6 @@
 # Stable-Diffusion-1.5-LCM-ONNX-RKNN2
 
-Dự án này cung cấp một giao diện web đơn giản để chạy **Stable Diffusion 1.5 với LCM** sử dụng **ONNX** và **RKNN2**, được tối ưu hóa cho các thiết bị biên với frontend **Streamlit**.
+Dự án này cung cấp một giao diện web đơn giản để chạy **Stable Diffusion 1.5 với LCM** sử dụng **ONNX** và **RKNN2**, được tối ưu hóa cho các thiết bị [Orange Pi](https://orangepi.vn) với frontend **Streamlit**.
 
 Với ứng dụng này, bạn có thể:
 - Nhập mô tả hình ảnh bằng văn bản qua giao diện web
@@ -13,7 +13,7 @@ Với ứng dụng này, bạn có thể:
 
 - Giao diện web thân thiện được xây dựng bằng Streamlit
 - Hỗ trợ công cụ suy luận Rockchip RKNN2
-- Nhẹ, dễ triển khai trên các hệ thống ARM (ví dụ: Orange Pi, Rockchip)
+- Nhẹ, dễ triển khai trên các thiết bị [Orange Pi](https://orangepi.vn (như Orange Pi 5, Orange Pi 5B, Orange Pi 5 MAX ...)
 
 ---
 
