@@ -3,7 +3,7 @@ from huggingface_hub import snapshot_download
 
 REPO_ID = "thanhtantran/Stable-Diffusion-1.5-LCM-ONNX-RKNN2"
 MODEL_FOLDER = "model"
-LOCAL_MODEL_DIR = "./model"
+LOCAL_MODEL_DIR = "./"
 
 def download_model(force_redownload=False):
     """Tải model với API mới nhất của Hugging Face Hub"""
