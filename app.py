@@ -5,32 +5,52 @@ import glob
 import time
 from pathlib import Path
 import re
-from hf_model_downloader import download_model
+from datetime import datetime
 
 def sanitize_filename(prompt):
-  """Convert prompt to filename format"""
+  """Convert prompt to filename format (matching the actual script behavior)"""
+  # This should match exactly how your run_rknn-lcm.py creates folder names
   filename = re.sub(r'[^\w\s-]', '', prompt)
   filename = re.sub(r'[-\s]+', '_', filename)
+  # Remove trailing dots if any
+  filename = filename.rstrip('.')
   return filename
 
-def initialize_model():
-  """Khởi tạo model với feedback tối giản"""
+def get_image_history():
+  """Get all generated images sorted by creation time (newest first)"""
   try:
-      # Hiển thị thông báo cực ngắn nếu cần tải
-      if not os.path.exists("./model") or not os.listdir("./model"):
-          with st.spinner("Downloading model files..."):
-              download_model()
-      return True
-  except Exception as e:
-      st.error(f"Model initialization failed: {str(e)}")
-      return False
-
-def run_image_generation(num_steps, size, prompt, progress_callback=None):
-  """Run image generation command with real-time progress"""
-  try:
-      # Create output directory if it doesn't exist
-      os.makedirs("./images", exist_ok=True)
+      all_images = glob.glob("./images/**/*.png", recursive=True)
+      all_images.extend(glob.glob("./images/**/*.jpg", recursive=True))
       
+      # Sort by creation time (newest first)
+      all_images.sort(key=os.path.getctime, reverse=True)
+      
+      # Get file info
+      image_info = []
+      for img_path in all_images:
+          try:
+              stat = os.stat(img_path)
+              creation_time = datetime.fromtimestamp(stat.st_ctime)
+              file_size = stat.st_size
+              
+              image_info.append({
+                  'path': img_path,
+                  'filename': os.path.basename(img_path),
+                  'creation_time': creation_time,
+                  'size': file_size,
+                  'size_mb': round(file_size / (1024 * 1024), 2)
+              })
+          except:
+              continue
+      
+      return image_info
+  except Exception as e:
+      return []
+
+def run_image_generation(num_steps, size, prompt):
+  """Run the image generation command and return the output path"""
+  try:
+      # Construct the command
       cmd = [
           "python", "./run_rknn-lcm.py",
           "-i", "./model",
@@ -40,88 +60,76 @@ def run_image_generation(num_steps, size, prompt, progress_callback=None):
           "--prompt", prompt
       ]
       
-      if progress_callback:
-          progress_callback(0.1, "Starting image generation...")
-      
       # Run the command
-      process = subprocess.Popen(
-          cmd, 
-          stdout=subprocess.PIPE, 
-          stderr=subprocess.PIPE, 
-          text=True,
-          universal_newlines=True
-      )
-      
-      if progress_callback:
-          progress_callback(0.3, "Model processing...")
-      
-      # Wait for process to complete
-      stdout, stderr = process.communicate()
-      
-      if progress_callback:
-          progress_callback(0.7, "Finalizing image...")
-      
-      if process.returncode != 0:
-          return None, f"Command failed: {stderr}"
-      
-      if progress_callback:
-          progress_callback(0.9, "Searching for generated image...")
+      result = subprocess.run(cmd, capture_output=True, text=True, check=True)
       
       # Wait a moment for file to be written
       time.sleep(2)
       
-      # Try multiple search patterns
+      # Try multiple approaches to find the generated image
       prompt_dir = sanitize_filename(prompt)
+      
+      # Search patterns - try different variations
       search_patterns = [
           f"./images/{prompt_dir}/*.png",
-          f"./images/{prompt_dir}/*.jpg",
-          f"./images/*.png",
-          f"./images/*.jpg"
+          f"./images/{prompt_dir}./*.png",  # With dot at the end
+          f"./images/{prompt_dir}*/*.png",  # Wildcard matching
+          f"./images/*{prompt_dir}*/*.png",  # More flexible matching
+          f"./images/**/*.png",  # Search all subdirectories
       ]
       
       image_files = []
       for pattern in search_patterns:
-          files = glob.glob(pattern)
+          files = glob.glob(pattern, recursive=True)
           if files:
               image_files.extend(files)
               break
       
-      if progress_callback:
-          progress_callback(1.0, "Complete!")
-      
       if image_files:
           # Return the most recently created file
-          latest_image = max(image_files, key=os.path.getctime)
-          return latest_image, None
+          latest_file = max(image_files, key=os.path.getctime)
+          return latest_file, None
       else:
-          # Debug: List all files in images directory
-          all_files = []
-          if os.path.exists("./images"):
-              for root, dirs, files in os.walk("./images"):
-                  for file in files:
-                      all_files.append(os.path.join(root, file))
-          
-          error_msg = f"No image files found. Searched patterns: {search_patterns}"
-          if all_files:
-              error_msg += f"\nFound files: {all_files}"
+          # If still not found, search all PNG files and find the newest
+          all_pngs = glob.glob("./images/**/*.png", recursive=True)
+          if all_pngs:
+              # Get the most recent PNG file
+              latest_file = max(all_pngs, key=os.path.getctime)
+              return latest_file, None
           else:
-              error_msg += "\nNo files found in ./images directory"
+              # Debug info
+              all_files = []
+              if os.path.exists("./images"):
+                  for root, dirs, files in os.walk("./images"):
+                      for file in files:
+                          all_files.append(os.path.join(root, file))
+              
+              error_msg = f"No image files found. Searched patterns: {search_patterns}"
+              if all_files:
+                  error_msg += f"\nFound files: {all_files}"
+              else:
+                  error_msg += "\nNo files found in ./images directory"
+              
+              return None, error_msg
           
-          return None, error_msg
-          
+  except subprocess.CalledProcessError as e:
+      return None, f"Command failed: {e.stderr}"
   except Exception as e:
       return None, f"Error: {str(e)}"
 
 def main():
   st.set_page_config(
-      page_title="AI Image Generator",
+      page_title="Local Orange Pi AI Image Generator",
       page_icon="🎨",
       layout="wide"
   )
   
+  st.title("🎨 Local Orange Pi AI Image Generator")
+  st.markdown("""
+  Generate beautiful images using your RKNN-LCM model, using Orange Pi 5 with RK3588 SoC - Buy Orange Pi 5 RK3588 at <a href='https://orangepi.net' target='_blank'>https://orangepi.net</a>
+  """, unsafe_allow_html=True)
+  
   # Initialize session state
-  if 'model_ready' not in st.session_state:
-      st.session_state.model_ready = False
   if 'generating' not in st.session_state:
       st.session_state.generating = False
   if 'generated_image' not in st.session_state:
@@ -129,24 +137,13 @@ def main():
   if 'error_message' not in st.session_state:
       st.session_state.error_message = None
   
-  # Khởi tạo model một lần duy nhất
-  if not st.session_state.model_ready:
-      if not initialize_model():
-          st.stop()
-      st.session_state.model_ready = True
-      st.rerun()
-  
-  # Main UI
-  st.title("🎨 Local Orange Pi AI Image Generator")
-  st.markdown("""
-  Generate beautiful images using your RKNN-LCM model, using Orange Pi 5 with RK3588 SoC - Buy Orange Pi 5 RK3588 at <a href='https://orangepi.net' target='_blank'>https://orangepi.net</a>
-  """, unsafe_allow_html=True)
-  
+  # Create two columns for layout
   col1, col2 = st.columns([1, 1])
   
   with col1:
       st.header("Settings")
       
+      # Input fields - disabled when generating
       num_steps = st.number_input(
           "Number of Inference Steps",
           min_value=1,
@@ -159,7 +156,7 @@ def main():
       size = st.selectbox(
           "Image Size",
           options=size_options,
-          index=1,
+          index=1,  # Default to 512x512
           disabled=st.session_state.generating
       )
       
@@ -170,26 +167,108 @@ def main():
           disabled=st.session_state.generating
       )
       
+      # Generate button
       if st.button("Generate Image", disabled=st.session_state.generating or not prompt.strip()):
           st.session_state.generating = True
           st.session_state.generated_image = None
           st.session_state.error_message = None
           st.rerun()
+      
+      # Image History Section
+      st.markdown("---")
+      st.header("📁 Image History")
+      
+      # Get image history
+      image_history = get_image_history()
+      
+      if image_history:
+          st.write(f"**Total images generated:** {len(image_history)}")
+          
+          # Show images in expandable sections
+          for i, img_info in enumerate(image_history[:10]):  # Show latest 10 images
+              with st.expander(f"🖼️ {img_info['filename']} ({img_info['creation_time'].strftime('%Y-%m-%d %H:%M:%S')})"):
+                  col_img, col_info = st.columns([1, 1])
+                  
+                  with col_img:
+                      if os.path.exists(img_info['path']):
+                          st.image(img_info['path'], width=200)
+                  
+                  with col_info:
+                      st.write(f"**Created:** {img_info['creation_time'].strftime('%Y-%m-%d %H:%M:%S')}")
+                      st.write(f"**Size:** {img_info['size_mb']} MB")
+                      st.write(f"**Path:** `{img_info['path']}`")
+                      
+                      # Download button for each image
+                      if os.path.exists(img_info['path']):
+                          with open(img_info['path'], "rb") as file:
+                              st.download_button(
+                                  label="📥 Download",
+                                  data=file.read(),
+                                  file_name=img_info['filename'],
+                                  mime="image/png",
+                                  key=f"download_{i}"
+                              )
+          
+          if len(image_history) > 10:
+              st.info(f"Showing latest 10 images. Total: {len(image_history)} images generated.")
+          
+          # Bulk actions
+          st.markdown("---")
+          col_refresh, col_clear = st.columns(2)
+          
+          with col_refresh:
+              if st.button("🔄 Refresh History"):
+                  st.rerun()
+          
+          with col_clear:
+              if st.button("🗑️ Clear All Images", type="secondary"):
+                  if st.session_state.get('confirm_clear', False):
+                      try:
+                          # Delete all images
+                          for img_info in image_history:
+                              if os.path.exists(img_info['path']):
+                                  os.remove(img_info['path'])
+                          
+                          # Remove empty directories
+                          for root, dirs, files in os.walk("./images", topdown=False):
+                              for dir_name in dirs:
+                                  dir_path = os.path.join(root, dir_name)
+                                  try:
+                                      if not os.listdir(dir_path):
+                                          os.rmdir(dir_path)
+                                  except:
+                                      pass
+                          
+                          st.session_state.confirm_clear = False
+                          st.success("All images cleared!")
+                          st.rerun()
+                      except Exception as e:
+                          st.error(f"Error clearing images: {e}")
+                  else:
+                      st.session_state.confirm_clear = True
+                      st.warning("Click again to confirm deletion of all images")
+      else:
+          st.info("No images generated yet. Create your first image!")
   
   with col2:
       st.header("Generated Image")
       
       if st.session_state.generating:
-          # Create progress tracking
+          # Show loading state
+          st.info("🕐 Generating image... Please wait")
+          
+          # Create a progress bar
           progress_bar = st.progress(0)
           status_text = st.empty()
           
-          def update_progress(progress, message):
-              progress_bar.progress(progress)
-              status_text.text(message)
+          # Simulate progress (since we can't get real progress from the subprocess)
+          for i in range(100):
+              progress_bar.progress(i + 1)
+              status_text.text(f"Processing... {i + 1}%")
+              time.sleep(0.05)  # Faster progress
           
-          # Run the actual generation with real progress
-          image_path, error = run_image_generation(num_steps, size, prompt, update_progress)
+          # Run the actual generation
+          image_path, error = run_image_generation(num_steps, size, prompt)
           
           # Update session state
           st.session_state.generating = False
@@ -207,29 +286,26 @@ def main():
       if st.session_state.error_message:
           st.error(f"❌ Error: {st.session_state.error_message}")
           
-          # Add debug button
-          if st.button("🔍 Debug: Show files in images directory"):
-              if os.path.exists("./images"):
-                  all_files = []
-                  for root, dirs, files in os.walk("./images"):
-                      for file in files:
-                          all_files.append(os.path.join(root, file))
-                  if all_files:
-                      st.write("Files found:")
-                      for file in all_files:
-                          st.write(f"- {file}")
+          # Add debug button to manually find the latest image
+          if st.button("🔍 Try to find latest generated image"):
+              try:
+                  all_pngs = glob.glob("./images/**/*.png", recursive=True)
+                  if all_pngs:
+                      latest_file = max(all_pngs, key=os.path.getctime)
+                      st.session_state.generated_image = latest_file
+                      st.session_state.error_message = None
+                      st.rerun()
                   else:
-                      st.write("No files found in ./images directory")
-              else:
-                  st.write("./images directory does not exist")
+                      st.write("No PNG files found in images directory")
+              except Exception as e:
+                  st.write(f"Error finding files: {e}")
       
       if st.session_state.generated_image:
           if os.path.exists(st.session_state.generated_image):
               st.success("✅ Image generated successfully!")
-              st.image(st.session_state.generated_image, 
-                      caption="Generated Image", 
-                      use_container_width=True)
+              st.image(st.session_state.generated_image, caption="Generated Image", use_container_width=True)
               
+              # Add download button
               with open(st.session_state.generated_image, "rb") as file:
                   st.download_button(
                       label="📥 Download Image",
@@ -240,7 +316,7 @@ def main():
           else:
               st.error("❌ Generated image file not found")
   
-  # CSS styling
+  # Add some styling
   st.markdown("""
   <style>
   .stButton > button {
@@ -258,6 +334,9 @@ def main():
   .stButton > button:disabled {
       background-color: #CCCCCC;
       color: #666666;
+  }
+  .stExpander > div > div > div > div {
+      padding: 10px;
   }
   </style>
   """, unsafe_allow_html=True)
