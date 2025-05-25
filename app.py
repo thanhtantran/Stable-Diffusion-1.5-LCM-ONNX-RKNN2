@@ -6,7 +6,20 @@ import time
 from pathlib import Path
 import re
 from datetime import datetime
+from hf_model_downloader import download_model
 import base64
+
+def initialize_model():
+  """Khởi tạo model với feedback tối giản"""
+  try:
+      # Hiển thị thông báo cực ngắn nếu cần tải
+      if not os.path.exists("./model") or not os.listdir("./model"):
+          with st.spinner("Downloading model files..."):
+              download_model()
+      return True
+  except Exception as e:
+      st.error(f"Model initialization failed: {str(e)}")
+      return False   
 
 def get_base64_of_bin_file(bin_file):
   """Convert image to base64 string"""
@@ -156,12 +169,21 @@ def main():
           """, unsafe_allow_html=True)
   
   # Initialize session state
+  if 'model_ready' not in st.session_state:
+      st.session_state.model_ready = False  
   if 'generating' not in st.session_state:
       st.session_state.generating = False
   if 'generated_image' not in st.session_state:
       st.session_state.generated_image = None
   if 'error_message' not in st.session_state:
       st.session_state.error_message = None
+
+  # Khởi tạo model một lần duy nhất
+  if not st.session_state.model_ready:
+      if not initialize_model():
+          st.stop()
+      st.session_state.model_ready = True
+      st.rerun()      
   
   # Create two columns for layout
   col1, col2 = st.columns([1, 1])
